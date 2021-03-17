@@ -6,7 +6,7 @@ contract Lotto{
 
     bool public done = false;
 
-    uint256 public ticketPrice = 0.1 ether;
+    uint256 public ticketPrice = 10 ether;
 
     address organiser;
 
@@ -30,26 +30,29 @@ contract Lotto{
 
     event NumbersDrawn(uint8[] resultNumbers);
 
+    event Withdrawal(address winner, uint amount);
+
     event TicketCanceled(Ticket ticket);
 
     struct Ticket{
         uint id;
         uint8[7] chosenNumbers;
         address owner;
+        uint8 numbersCorrect;
     }
 
     modifier raffleNotStarted(){
-        assert(!done);
+        require(!done, "raffle has finished");
         _;
     }
 
     modifier raffleDone(){
-        assert(done);
+        require(done, "raffle has not finished yet");
         _;
     }
 
     modifier onlyOrganiser(){
-        require(organiser == msg.sender);
+        require(organiser == msg.sender, "you're not the organiser");
         _;
     }
 
@@ -75,7 +78,7 @@ contract Lotto{
         //ideas - either enable withdrawals before the raffle has ended or create another mapping and another method for returning overpaid funds
         pendingWithdrawals[msg.sender] += (msg.value - ticketPrice);
 
-        Ticket memory ticket = Ticket(currId++, chosenNumbers, msg.sender);
+        Ticket memory ticket = Ticket(currId++, chosenNumbers, msg.sender, 0);
         tickets.push(ticket);
         aggregatePaid += ticketPrice;
 
@@ -86,7 +89,7 @@ contract Lotto{
 
     function startRaffle() onlyOrganiser raffleNotStarted public{
         //pull random numbers and put them in resultNumbers
-        //check totalfunds and calculate 95% to be given back to winners
+        //check total funds and calculate 95% to be given back to winners
         //set done to true
         //do event
         resultNumbers.push(5);
@@ -97,25 +100,6 @@ contract Lotto{
         resultNumbers.push(25);
         resultNumbers.push(35);
 
-        for (uint i = 0; i < tickets.length; i++){
-            uint8 counter = 0;
-            for (uint8 j = 0; j < 7; j++){
-                for (uint8 k = 0; k < 7; k++){
-                    if (i != j){
-                        if (tickets[i].chosenNumbers[j] == resultNumbers[k]){
-                            counter += 1;
-                        }
-                    }
-                }
-                numberOfWinningTicketsByCorrectNumber[counter] += 1;
-            }
-        }
-        //30% go to 7 hits, 20% go to 6 hits, 15% go to 5 hits, 10% go to 4 hits, 20% go to 3 hits
-        winningAmountByCorrectNumber[3] = (aggregatePaid / 100 * 20) / numberOfWinningTicketsByCorrectNumber[3];
-        winningAmountByCorrectNumber[4] = (aggregatePaid / 100 * 10) / numberOfWinningTicketsByCorrectNumber[4];
-        winningAmountByCorrectNumber[5] = (aggregatePaid / 100 * 15) / numberOfWinningTicketsByCorrectNumber[5];
-        winningAmountByCorrectNumber[6] = (aggregatePaid / 100 * 20) / numberOfWinningTicketsByCorrectNumber[6];
-        winningAmountByCorrectNumber[7] = (aggregatePaid / 100 * 30) / numberOfWinningTicketsByCorrectNumber[7];
 
         for (uint i = 0; i < tickets.length; i++){
             uint8 counter = 0;
@@ -127,8 +111,19 @@ contract Lotto{
                         }
                     }
                 }
+                tickets[i].numbersCorrect = counter;
+                numberOfWinningTicketsByCorrectNumber[counter] += 1;
             }
-            pendingWithdrawals[tickets[i].owner] += winningAmountByCorrectNumber[counter];
+        }
+        //30% go to 7 hits, 20% go to 6 hits, 15% go to 5 hits, 10% go to 4 hits, 20% go to 3 hits
+        winningAmountByCorrectNumber[3] = (aggregatePaid / 100 * 20) / (numberOfWinningTicketsByCorrectNumber[3] == 0 ? 1: numberOfWinningTicketsByCorrectNumber[3]);
+        winningAmountByCorrectNumber[4] = (aggregatePaid / 100 * 10) / (numberOfWinningTicketsByCorrectNumber[4] == 0 ? 1: numberOfWinningTicketsByCorrectNumber[4]);
+        winningAmountByCorrectNumber[5] = (aggregatePaid / 100 * 15) / (numberOfWinningTicketsByCorrectNumber[5] == 0 ? 1: numberOfWinningTicketsByCorrectNumber[5]);
+        winningAmountByCorrectNumber[6] = (aggregatePaid / 100 * 20) / (numberOfWinningTicketsByCorrectNumber[6] == 0 ? 1: numberOfWinningTicketsByCorrectNumber[6]);
+        winningAmountByCorrectNumber[7] = (aggregatePaid / 100 * 30) / (numberOfWinningTicketsByCorrectNumber[7] == 0 ? 1: numberOfWinningTicketsByCorrectNumber[7]);
+
+        for (uint i = 0; i < tickets.length; i++){
+            pendingWithdrawals[tickets[i].owner] += winningAmountByCorrectNumber[tickets[i].numbersCorrect];
         }
 
         done = true;
@@ -143,6 +138,8 @@ contract Lotto{
         pendingWithdrawals[msg.sender] = 0;
 
         payable(msg.sender).transfer(amount);
+
+        emit Withdrawal(msg.sender, amount);
     }
 
 
