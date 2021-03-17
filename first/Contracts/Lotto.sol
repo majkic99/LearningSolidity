@@ -1,16 +1,18 @@
 pragma solidity ^0.8.2;
 
-contract Lotto {
+contract Lotto{
 
     Ticket[] tickets;
 
-    mapping(uint => Ticket) ticketsById;
+    mapping (address => uint) pendingWithdrawals;
 
-    mapping(uint8 => uint) winningAmountByNumbersCorrect;
+    mapping(uint8 => uint) numberOfWinningTicketsByCorrectNumber;
+
+    mapping(uint8 => uint) winningAmountByCorrectNumber;
 
     uint currId = 1;
 
-    //address public lottoOrgFunds;
+    uint public currBalance;
 
     address organiser;
 
@@ -18,20 +20,22 @@ contract Lotto {
 
     uint256 public ticketPrice = 0.1 ether;
 
-    uint8[7] public resultNumbers;
+    uint8[] resultNumbers;
+
+    function getResultNumbers() public raffleDone returns (uint8[] memory) {
+        return resultNumbers;
+    }
 
     event TicketBought(Ticket ticket);
 
-    event TicketPaidOut(Ticket ticket, uint amount);
-
-    event NumbersDrawn(uint[7] resultNumbers);
+    event NumbersDrawn(uint8[] resultNumbers);
 
     event TicketCanceled(Ticket ticket);
 
-    struct Ticket {
+    struct Ticket{
         uint id;
-        uint8[] chosenNumbers;
-        address payable owner;
+        uint8[7] chosenNumbers;
+        address owner;
     }
 
     modifier raffleNotStarted(){
@@ -58,28 +62,92 @@ contract Lotto {
         //check if numbers are different, check if all of them are between 1 and 39
         //create new Ticket, put in tickets and in ticketsById
         //do event
+        require (msg.value >= ticketPrice);
+        for (uint i = 0; i < 7; i++){
+            require (chosenNumbers[i] > 0 || chosenNumbers[i] < 40);
+            for (uint j = 0; j < 7; j++){
+                if (i != j){
+                    if (chosenNumbers[i] == chosenNumbers[j]){
+                        revert("Two same numbers");
+                    }
+                }
+            }
+        }
 
+        Ticket memory ticket = Ticket(currId++, chosenNumbers, msg.sender);
+        tickets.push(ticket);
+        currBalance += ticketPrice;
+        emit TicketBought(ticket);
+        return ticket.id;
     }
 
-    function startRaffle() onlyOrganiser raffleNotStarted public {
+    function startRaffle() onlyOrganiser raffleNotStarted public{
         //pull random numbers and put them in resultNumbers
-        //check totalfunds and calculate 95% to be given back to winners
+        //check total funds and calculate 95% to be given back to winners
         //set done to true
         //do event
+        resultNumbers.push(5);
+        resultNumbers.push(9);
+        resultNumbers.push(12);
+        resultNumbers.push(13);
+        resultNumbers.push(23);
+        resultNumbers.push(25);
+        resultNumbers.push(35);
+
+        for (uint i = 0; i < tickets.length; i++){
+            uint8 counter = 0;
+            for (uint8 j = 0; j < 7; j++){
+                for (uint8 k = 0; k < 7; k++){
+                    if (i != j){
+                        if (tickets[i].chosenNumbers[j] == resultNumbers[k]){
+                            counter += 1;
+                        }
+                    }
+                }
+                numberOfWinningTicketsByCorrectNumber[counter] += 1;
+            }
+        }
+        //30% go to 7 hits, 20% go to 6 hits, 15% go to 5 hits, 10% go to 4 hits, 20% go to 3 hits
+        winningAmountByCorrectNumber[3] = (currBalance / 100 * 20) / numberOfWinningTicketsByCorrectNumber[3];
+        winningAmountByCorrectNumber[4] = (currBalance / 100 * 10) / numberOfWinningTicketsByCorrectNumber[4];
+        winningAmountByCorrectNumber[5] = (currBalance / 100 * 15) / numberOfWinningTicketsByCorrectNumber[5];
+        winningAmountByCorrectNumber[6] = (currBalance / 100 * 20) / numberOfWinningTicketsByCorrectNumber[6];
+        winningAmountByCorrectNumber[7] = (currBalance / 100 * 30) / numberOfWinningTicketsByCorrectNumber[7];
+
+        for (uint i = 0; i < tickets.length; i++){
+            uint8 counter = 0;
+            for (uint8 j = 0; j < 7; j++){
+                for (uint8 k = 0; k < 7; k++){
+                    if (i != j){
+                        if (tickets[i].chosenNumbers[j] == resultNumbers[k]){
+                            counter += 1;
+                        }
+                    }
+                }
+            }
+            pendingWithdrawals[tickets[i].owner] += winningAmountByCorrectNumber[counter];
+        }
+
+        done = true;
+        emit NumbersDrawn(resultNumbers);
     }
 
-    function cancelTicket(uint id) public raffleNotStarted {
+
+
+    function cancelTicket(uint id) public raffleNotStarted{
         //check if id exists, check if ticket.address matches msg.sender
         //do event
     }
 
+    function withdrawWinnings() public payable raffleDone{
+        uint amount = pendingWithdrawals[msg.sender];
 
-    function payOutTicket(uint id) public raffleDone {
-        //check if msg.sender equals id, then msg.transfer amount of funds from winningAmountByNumbersCorrect
-        //do event
+        pendingWithdrawals[msg.sender] = 0;
+
+        payable(msg.sender).transfer(amount);
     }
 
-    function randomGen(uint seed) private returns (uint randomNumber) {
-        //generate random number from 1 to 39
-    }
+
+
+
 }
