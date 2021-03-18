@@ -1,6 +1,7 @@
 pragma solidity 0.6.6;
 pragma experimental ABIEncoderV2;
 import "https://raw.githubusercontent.com/smartcontractkit/chainlink/master/evm-contracts/src/v0.6/VRFConsumerBase.sol";
+
 // SPDX-License-Identifier: MIT
 
 

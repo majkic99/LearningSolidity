@@ -8,5 +8,15 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "truffle-plugin-verify": "^0.5.7"
+  },
+  "dependencies": {
+    "truffle-hdwallet-provider": "1.0.4",
+    "truffle-hdwallet-provider-privkey": "1.0.3",
+    "web3": "1.0.0-beta.46"
+  }
+
 }
+
