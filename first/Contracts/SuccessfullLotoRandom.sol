@@ -1,8 +1,23 @@
-pragma solidity ^0.8.2;
+pragma solidity 0.6.6;
+pragma experimental ABIEncoderV2;
+import "https://raw.githubusercontent.com/smartcontractkit/chainlink/master/evm-contracts/src/v0.6/VRFConsumerBase.sol";
 // SPDX-License-Identifier: MIT
 
 
-contract Lotto{
+contract Lotto is VRFConsumerBase{
+    bytes32 internal keyHash;
+    uint256 internal fee;
+
+    uint256 public randomResult;
+    event Received(address, uint);
+    receive() external payable {
+        emit Received(msg.sender, msg.value);
+    }
+    function linkBalance() public view returns (uint256){
+        return LINK.balanceOf(address(this));
+    }
+
+    uint8 public numberCounter = 0;
 
     uint public aggregatePaid;
 
@@ -48,6 +63,11 @@ contract Lotto{
         _;
     }
 
+    modifier numbersDrawn(){
+        require(numberCounter == 7, "not 7 numbers pulled");
+        _;
+    }
+
     modifier raffleDone(){
         require(done, "raffle has not finished yet");
         _;
@@ -63,7 +83,14 @@ contract Lotto{
         _;
     }
 
-    constructor(){
+    constructor()
+    VRFConsumerBase(
+        0xdD3782915140c8f3b190B5D67eAc6dc5760C46E9, // VRF Coordinator
+        0xa36085F69e2889c224210F603D836748e7dC0088  // LINK Token
+    ) public
+    {
+        keyHash = 0x6c3699283bda56ad74f6b855546325b68d482e983852a7a82979cc4807b641f4;
+        fee = 0.1 * 10 ** 18; // 0.1 LINK
         organiser = msg.sender;
     }
 
@@ -72,23 +99,6 @@ contract Lotto{
     function buyTicket(uint8[7] memory chosenNumbers) public payable raffleNotStarted validNumbers(chosenNumbers) returns (uint){
 
         require (msg.value >= ticketPrice);
-
-        /*
-        first went with for loop (7**2 operations) , then outer function with ~30 operations, then called that function inside modifier
-        for (uint i = 0; i < 7; i++){
-            require (chosenNumbers[i] > 0 || chosenNumbers[i] < 40);
-            for (uint j = 0; j < 7; j++){
-                if (i != j){
-                    if (chosenNumbers[i] == chosenNumbers[j]){
-                        revert("Two same numbers");
-                    }
-                }
-            }
-        }
-
-        require(validateNumbers(chosenNumbers), "did not pass number validation");
-        */
-
 
         //if you sent more money than the ticket price you can withdraw after the round is over
         //ideas - either enable withdrawals before the raffle has ended or create another mapping and another method for returning overpaid funds
@@ -103,31 +113,8 @@ contract Lotto{
         return ticket.id;
     }
 
-    function startRaffle() onlyOrganiser raffleNotStarted public{
-        //pull random numbers and put them in resultNumbers
-        //check totalfunds and calculate 95% to be given back to winners
-        //set done to true
-        //do event
-        //set 7 random numbers until they are valid
-        /*
-        do{
-            resultNumbers[0] = 1;
-            resultNumbers[1] = 2;
-            resultNumbers[2] = 3;
-            resultNumbers[3] = 4;
-            resultNumbers[4] = 5;
-            resultNumbers[5] = 6;
-            resultNumbers[6] = 7;
-        }while(validateNumbers(resultNumbers));
-        */
-        resultNumbers[0] = 1;
-        resultNumbers[1] = 2;
-        resultNumbers[2] = 3;
-        resultNumbers[3] = 4;
-        resultNumbers[4] = 5;
-        resultNumbers[5] = 6;
-        resultNumbers[6] = 7;
-        //require(validateNumbers(resultNumbers), "did not pass number validation");
+    function startRaffle() onlyOrganiser raffleNotStarted numbersDrawn validNumbers(resultNumbers) public{
+
 
         for (uint i = 0; i < tickets.length; i++){
             uint8 counter = 0;
@@ -191,6 +178,26 @@ contract Lotto{
         }
 
         return true;
+    }
+
+    function getRandomNumber(uint256 userProvidedSeed) public onlyOrganiser returns (bytes32 requestId) {
+        require(LINK.balanceOf(address(this)) > fee, "Not enough LINK - fill contract with faucet");
+
+        return requestRandomness(keyHash, fee, userProvidedSeed);
+    }
+
+    /**
+     * Callback function used by VRF Coordinator
+     */
+    function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
+        randomResult = randomness;
+        resultNumbers[numberCounter++] = uint8(randomResult % 39 + 1);
+        if (numberCounter > 7) numberCounter = 0;
+    }
+
+
+    function withdrawLink() external payable onlyOrganiser{
+        require(LINK.transfer(msg.sender, LINK.balanceOf(address(this))), "Unable to transfer");
     }
 
 
