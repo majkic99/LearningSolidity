@@ -39,6 +39,8 @@ contract Lotto is VRFConsumerBase{
 
     uint8[7] resultNumbers;
 
+    uint8[] numberDrum;
+
     function getResultNumbers() public raffleDone view returns (uint8[7] memory) {
         return resultNumbers;
     }
@@ -51,6 +53,8 @@ contract Lotto is VRFConsumerBase{
 
     event TicketCanceled(Ticket ticket);
 
+    event NumberDrawn(uint8 numberDrawn);
+
     struct Ticket{
         uint id;
         uint8[7] chosenNumbers;
@@ -59,7 +63,7 @@ contract Lotto is VRFConsumerBase{
     }
 
     modifier raffleNotStarted(){
-        require(!done, "raffle has finished");
+        require(!done && numberCounter == 0, "raffle has finished");
         _;
     }
 
@@ -92,6 +96,9 @@ contract Lotto is VRFConsumerBase{
         keyHash = 0x6c3699283bda56ad74f6b855546325b68d482e983852a7a82979cc4807b641f4;
         fee = 0.1 * 10 ** 18; // 0.1 LINK
         organiser = msg.sender;
+        for (uint8 i = 1; i < 40; i++){
+            numberDrum.push(i);
+        }
     }
 
 
@@ -113,7 +120,7 @@ contract Lotto is VRFConsumerBase{
         return ticket.id;
     }
 
-    function startRaffle() onlyOrganiser raffleNotStarted numbersDrawn validNumbers(resultNumbers) public{
+    function startRaffle() onlyOrganiser numbersDrawn public{
 
 
         for (uint i = 0; i < tickets.length; i++){
@@ -123,7 +130,6 @@ contract Lotto is VRFConsumerBase{
                     if (i != j){
                         if (tickets[i].chosenNumbers[j] == resultNumbers[k]){
                             counter += 1;
-                            break;
                         }
                     }
                 }
@@ -191,8 +197,16 @@ contract Lotto is VRFConsumerBase{
      */
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
         randomResult = randomness;
-        resultNumbers[numberCounter++] = uint8(randomResult % 39 + 1);
-        if (numberCounter > 7) numberCounter = 0;
+        if (numberCounter < 7){
+            uint8 numberPick = uint8((randomResult % (numberDrum.length-1)) + 1);
+            uint8 resultNumber = numberDrum[numberPick];
+            numberDrum[numberPick] = numberDrum[numberDrum.length-1];
+            numberDrum.pop();
+
+            resultNumbers[numberCounter++] = resultNumber;
+        }
+
+
     }
 
 
