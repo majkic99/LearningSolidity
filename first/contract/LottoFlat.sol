@@ -560,6 +560,7 @@ contract Lotto is VRFConsumerBase{
             uint8 resultNumber = numberDrum[numberPick];
             numberDrum[numberPick] = numberDrum[numberDrum.length - 1 - numberCounter];
             resultNumbers[numberCounter++] = resultNumber;
+            emit NumberDrawn(resultNumber);
         }
     }
 
