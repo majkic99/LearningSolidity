@@ -559,15 +559,11 @@ contract Lotto is VRFConsumerBase{
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
         randomResult = randomness;
         if (numberCounter < 7){
-            uint8 numberPick = uint8((randomResult % (numberDrum.length-1)) + 1);
+            uint8 numberPick = uint8((randomResult % (numberDrum.length - 1 - numberCounter)));
             uint8 resultNumber = numberDrum[numberPick];
-            numberDrum[numberPick] = numberDrum[numberDrum.length-1];
-            numberDrum.pop();
-
+            numberDrum[numberPick] = numberDrum[numberDrum.length - 1 - numberCounter];
             resultNumbers[numberCounter++] = resultNumber;
         }
-
-
     }
 
     function startRaffle() internal onlyOrganiser allNumbersDrawn statsImported {
