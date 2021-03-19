@@ -177,6 +177,9 @@ contract VRFRequestIDBase {
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.0;
 
+
+
+
 /** ****************************************************************************
  * @notice Interface for contracts using VRF randomness
  * *****************************************************************************
@@ -383,7 +386,7 @@ contract Lotto is VRFConsumerBase{
 
     uint public aggregatePaid;
     //current ticket id
-    uint currId = 1;
+    uint public currId = 1;
     //if true you can pay out tickets
     bool public done;
     //sets true when you've calculated the number of tickets with 0,1,2,3,4,5,6,7 correct numbers;
@@ -485,7 +488,7 @@ contract Lotto is VRFConsumerBase{
         return LINK.balanceOf(address(this));
     }
 
-    function getResultNumbers() public raffleDone view returns (uint8[7] memory) {
+    function getResultNumbers() public view returns (uint8[7] memory) {
         return resultNumbers;
     }
 
@@ -498,14 +501,11 @@ contract Lotto is VRFConsumerBase{
         //if you send more money than the ticket price you can withdraw after the round is over
         //ideas - either enable withdrawals before the raffle has ended or create another mapping and another method for returning overpaid funds
         pendingWithdrawals[msg.sender] += (msg.value - ticketPrice);
-
         Ticket memory ticket = Ticket(currId++, chosenNumbers, msg.sender, 0, false);
         tickets.push(ticket);
         ticketsByID[ticket.id] = ticket;
         aggregatePaid += ticketPrice;
-
         emit TicketBought(ticket);
-
         return ticket.id;
     }
 
@@ -541,11 +541,8 @@ contract Lotto is VRFConsumerBase{
 
     function withdrawWinnings() public payable {
         uint amount = pendingWithdrawals[msg.sender];
-
         pendingWithdrawals[msg.sender] = 0;
-
         payable(msg.sender).transfer(amount);
-
         emit Withdrawal(msg.sender, amount);
     }
 
